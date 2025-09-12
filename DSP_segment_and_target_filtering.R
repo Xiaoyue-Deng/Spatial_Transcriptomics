@@ -645,3 +645,4 @@ results_df %>%
 results_df %>%
   filter(color_group == "MIGs Significant" & log2FoldChange < 0) %>%
   nrow()
+sessioninfo::session_info()
