@@ -8,22 +8,16 @@
 
 #====== load libraries ======
 library(tidyverse)
-library(miscTools)
 library(readxl)
-library("org.Hs.eg.db")
-library(devtools)  
-library(remotes)
-library(dplyr)
-library(ggplot2)
-library(ggrepel)
-#library(gridExtra)
 library(openxlsx)
-library(clusterProfiler)
 library(DESeq2)
-library('enrichplot')
-library("EnhancedVolcano")
-library('pheatmap')
-
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(enrichplot)
+library(EnhancedVolcano)
+library(pheatmap)
+library(ggrepel)
+library(sessioninfo)
 #======Loading data frames and generating required variables======
 ## load annotation and count datasets 
 annot_data <- read.csv("File_Path")
