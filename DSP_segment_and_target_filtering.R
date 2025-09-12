@@ -1,8 +1,12 @@
-## load libraries
-#install.packages("org.Hs.eg.db")
-#BiocManager::install("clusterProfiler")
-#BiocManager::install("DESeq2")
-#BiocManager::install("org.Hs.eg.db")
+#===============================================================
+# Title: Spatial Transcriptomics Analysis from Nanostring GeoMx DSP data
+# Author: Xiaoyue Deng, Mansour Faye, Anke Augspach (Corresponding Author)
+# Contact: xiaoyue.deng@students.unibe.ch, anke.augspach@unibe.ch
+# Date: 2024-09-12
+# License: MIT
+#===============================================================
+
+#====== load libraries ======
 library(tidyverse)
 library(miscTools)
 library(readxl)
@@ -19,27 +23,21 @@ library(DESeq2)
 library('enrichplot')
 library("EnhancedVolcano")
 library('pheatmap')
-#### Loading data frames and generating required variables
+
+#======Loading data frames and generating required variables======
 ## load annotation and count datasets 
-#annot_data <- read.csv("1_4-12-2024/prostate_rawdata_100424_annon.xlsx")
-#count_data <- read.csv("........", check.names = FALSE)
-#setwd("~/Thesis/spatial_transcriptomics")
-setwd("C:/Users/coruf/Non_DriveStuff/spatial_transcriptomics")
-file_path <- "1_4-21-2024/prostate_rawdata_100424_annon.xlsx"
-annot_data <- read_excel("1_4-21-2024/prostate_rawdata_100424_annon.xlsx",sheet = 1)
+annot_data <- read.csv("File_Path")
+count_data <- read.csv("File_Path", check.names = FALSE)
+setwd("Your_WD")
 target_properties <- read_excel(file_path,sheet = 2)
 count_data <- read_excel(file_path,sheet = 3)
 bio_probe <- read_excel(file_path, sheet = 4)
-# ===============================#+=============================================
-#   Subset the results (Optional)
-# ==============================================================================
+# =====Subset the results (Optional)=====
 tumour_annot <- annot_data[annot_data$SegmentLabel == "tumour", ]
 tme_annot <- annot_data[annot_data$SegmentLabel == "TME", ]
 #annot_data <- tumour_annot
 #annot_data <- tme_annot
 annot_data <- annot_data %>% mutate("pAlignedReads"=AlignedReads/RawReads*100)
-## no? generate the following column "ExpressionFilteringThreshold..Human.NGS.Whole.Transcriptome.Atlas.RNA_1.0.", this will
-## be used downstream for segment and target filtering
 annot_data <- annot_data %>% mutate("ExpressionFilteringThreshold..Human.NGS.Whole.Transcriptome.Atlas.RNA_1.0."=
                                       ifelse("LOQ (Human NGS Whole Transcriptome Atlas RNA_1.0"<=2, 2,
                                              ifelse("LOQ (Human NGS Whole Transcriptome Atlas RNA_1.0">2, "LOQ (Human NGS Whole Transcriptome Atlas RNA_1.0", NA)))
@@ -75,8 +73,7 @@ sum(counts_LOQ_sum_sample < 560)
 counts_LOQ_bin <- counts_LOQ_bin[, !(colnames(counts_LOQ_bin) %in% filtered_samples_1)]
 xl_annot <- xl_annot[!(xl_annot$SegmentDisplayName %in% filtered_samples_1), ]
 xl_counts <- xl_counts[, !(colnames(xl_counts) %in% filtered_samples_1)]
-
-##### TARGET FILTERING
+# ====== Target filtering ======
 # exclude genes that are below LOQ in xx% of segments
 LOQ_gene_thresh <- 10 ## define your own % threshold here
 LOQ_gene_n <- round(ncol(xl_counts)/100 * LOQ_gene_thresh)
@@ -88,7 +85,8 @@ print(paste0("Threshold: Genes that are above LOQ in ", LOQ_gene_thresh, "% of s
 counts_LOQ_bin <- counts_LOQ_bin[!(rownames(counts_LOQ_bin) %in% filtered_genes), ]
 xl_counts <- xl_counts[!(rownames(xl_counts) %in% filtered_genes), ]
 xl_counts <- tibble::rownames_to_column(xl_counts, "TargetName")
-# ============== ADD BACK THE NEGPROB ROW ====================================
+################# End of Filtering steps for segments and targets #################
+# ====== NEGPROB ROW FOR IDENTIFICATION ======
 negp_row <- count_data.1[count_data.1$TargetName == "NegProbe-WTX",]
 negp_row <- as.data.frame(negp_row)
 row.names(negp_row) <- negp_row$TargetName
@@ -99,7 +97,7 @@ negp_row_filtered <- negp_row[, columns_to_keep]
 #xl_counts <- as.matrix(xl_counts)
 xl_counts <- rbind(xl_counts, negp_row_filtered)
 tail(xl_counts)
-# ============== ADD BACK THE NEGPROB ROW ====================================
+# ===== Special Data Adaptation =====
 # for tme only, when samples were excluded:
 xl_annot <- subset(xl_annot, SegmentDisplayName %in% annot_data.1$SegmentDisplayName)
 match_indices <- match(xl_annot$SegmentDisplayName, annot_data.1$SegmentDisplayName)
@@ -144,48 +142,18 @@ dds_counts <- counts(dds, normalized=TRUE)
 pca_plot <- plotPCA(dds_vst, intgroup = "U6ATAC_RNAscopeClass", returnData = FALSE)
 #pca_plot <- plotPCA(dds_counts, intgroup = "U6ATAC_RNAscopeClass", returnData = FALSE)
 print(pca_plot)
-#------------- doing log transformed data, but with a different function now:----------------------------------------
-#norm_counts <- counts(dds, normalized=TRUE)
-#log_norm_counts <- log2(norm_counts + 1)
-#pca_result <- prcomp(t(log_norm_counts))
-#unique_conditions <- unique(dds$condition)
-#colors <- rainbow(length(unique_conditions))  # Generating a set of colors
-#color_map <- setNames(colors, unique_conditions)
-# Plotting using solid filled dots
-#plot(pca_result$x[, 1], pca_result$x[, 2], col=color_map[dds$condition],
-#     pch=16,  # This changes the plot points to filled circles
-#     xlab="PC1", ylab="PC2", main="PCA of Log2-transformed Counts")
-# Adding a legend with solid filled dots
-#legend("topright", legend=unique_conditions, col=colors, pch=16)
-# Assuming 'dds$PatientNum' exists and contains the patient number information.
-#unique_patients <- unique(dds$PatientNum)
-#patient_colors <- rainbow(length(unique_patients))  # Generating a set of colors for each unique patient number
-# Creating a named vector where names are patient numbers and values are colors
-#patient_color_map <- setNames(patient_colors, unique_patients)
-#par(mar=c(5, 4, 4, 8)) 
-#plot(pca_result$x[, 1], pca_result$x[, 2], col=patient_color_map[dds$PatientNum],
-#     pch=16, xlab="PC1", ylab="PC2", main="PCA of Log2-transformed Counts by Patient Number")
-# Placing the legend outside the plot area to the right
-#legend("bottomright", legend=unique_patients, col=patient_colors, pch=16,
-#       title="Patient Number",adj=1)
-#dev.off()
-# ------------------------------------------------------------------------------
-# slice our conditions of interest
+# slice conditions of interest
 dds_tumour<- results(dds, contrast=c("U6ATAC_RNAscopeClass", "high","low"))
 #dds_tme <- results(dds, contrast=c("condition", "high_TME", "low_TME"))
 #dds_tme<- results(dds, contrast=c("U6ATAC_RNAscopeClass", "high","low"))
 dds_tumour[rownames(dds_tumour)=="TP53",]
-# ==============================================================================
-
-# Onwards with the volcanos
-
-# ==============================================================================
-# Investigate TP53
+# =====Onwards with the volcanos =====
+#Investigate gene of interest, e.g. TP53
 gene_name <- "TP53"
 counts <- plotCounts(dds, gene = gene_name, intgroup = "U6ATAC_RNAscopeClass", returnData = TRUE)
 counts <- tibble::rownames_to_column(counts, "SegmentDisplayName")
 pos <- position_jitter(width =0.1, seed = 1)
-# Plot
+# Visualize the result
 counts %>%
   ggplot(aes(x = U6ATAC_RNAscopeClass, y = count, fill = U6ATAC_RNAscopeClass)) +
   geom_boxplot(outlier.color = NA) +
@@ -194,23 +162,23 @@ counts %>%
   theme(axis.title.x.bottom = element_blank(), legend.position = "none") +
   labs(title = paste("Counts of", gene_name, "by condition, proper"))
 
-#--------------------------- Violin plot of genes of interest ------------------
+#===== Violin plot of genes of interest =====
 # Assuming gene_name and counts dataframe are already set as needed
-gene_name <- "TP53"  # You can change this to any gene of interest like "PDHA1" if needed
+# gene_name <- "TP53"  # Your GOI
 
 # Using the dataframe generated from plotCounts
-counts <- plotCounts(dds, gene = gene_name, intgroup = "U6ATAC_RNAscopeClass", returnData = TRUE)
+# counts <- plotCounts(dds, gene = gene_name, intgroup = "U6ATAC_RNAscopeClass", returnData = TRUE)
 # Plotting the violin plot
-ggplot(counts, aes(x = U6ATAC_RNAscopeClass, fill = U6ATAC_RNAscopeClass, y = count)) +
-  geom_violin() +
-  geom_jitter(position = position_jitter(width = 0.3, seed = 2)) +  # Adjust jitter position with specified width
-  labs(title = paste("Expression of", gene_name, "by Condition"), y = paste(gene_name, "Expression")) +
-  scale_y_continuous(trans = "log2", name = paste(gene_name, "Expression (log2 scale)")) +
-  scale_fill_manual(values = c("high" = "#1f77b4", "low" = "#ff7f0e")) +  # Customize colors here
-  theme_bw() +
-  theme(axis.title.x = element_blank(), legend.position = "none")
+# ggplot(counts, aes(x = U6ATAC_RNAscopeClass, fill = U6ATAC_RNAscopeClass, y = count)) +
+#  geom_violin() +
+#  geom_jitter(position = position_jitter(width = 0.3, seed = 2)) +  # Adjust jitter position with specified width
+#  labs(title = paste("Expression of", gene_name, "by Condition"), y = paste(gene_name, "Expression")) +
+#  scale_y_continuous(trans = "log2", name = paste(gene_name, "Expression (log2 scale)")) +
+#  scale_fill_manual(values = c("high" = "#1f77b4", "low" = "#ff7f0e")) +  # Customize colors here
+#  theme_bw() +
+#  theme(axis.title.x = element_blank(), legend.position = "none")
 
-# ----------------------------list of genes of interest-------------------------
+# ===== list of genes of interest =====
 dna_repair_genes_all <- c("BRCA1", "BRCA2", "ATM", "CHEK2", "PALB2", "RAD51", "XRCC1",
                           "XRCC2", "XRCC3", "RAD51C", "RAD51D", "RAD52", "RAD54L",
                           "BRIP1", "BARD1", "NBN", "RAD50", "MRE11", "ATR",
@@ -225,21 +193,8 @@ mig_genes <- old_mig$`All MIGs`
 e2f_genes <- c("E2F1", "E2F2", "E2F3", "E2F4", "E2F5", "E2F6", "E2F7", "E2F8") 
 DNA_r_144_genes <- read_excel("DNA_repair_genes_144.xlsx")
 DNA_r_144_genes <- DNA_r_144_genes$list_of_144_genes
-# ==============================================================================
-#           CANCER GENOMICS 
-# ==============================================================================
-results_df<- as.data.frame(dds_tumour)
-tag <- "tumour"
-#tag <- "TME"
-# volcano - wip
-library("EnhancedVolcano")
-EnhancedVolcano(results_df,
-                lab = rownames(results_df),
-                x = 'log2FoldChange',
-                y = 'pvalue',
-                title = paste(tag, " high vs low U6atac"),
-                legendPosition = 'bottom')
-# GSEA analysis ==== lengthy conversion ========================================
+
+# ===== Convert Data for GSEA analysis ====
 results_df_gsea <- results_df %>% rownames_to_column(var="SYMBOL")
 ens2symbol <- AnnotationDbi::select(org.Hs.eg.db,
                                     key=results_df_gsea$SYMBOL, 
@@ -267,7 +222,7 @@ H <- msigdbr(species = "Homo sapiens", category = "H") %>%
 # perform GSEA
 em2 <- GSEA(geneList, TERM2GENE = H)
 
-## visualise GSEA DOTPLOT
+# visualise GSEA DOTPLOT
 category_num = 50
 dot1 <- dotplot(em2, showCategory=category_num, split=".sign", font.size=8, size = NULL, label_format = 90) + 
   ggtitle(paste("top",category_num, " hallmarks of", tag, "high vs low U6atac")) +
@@ -275,7 +230,7 @@ dot1 <- dotplot(em2, showCategory=category_num, split=".sign", font.size=8, size
 dot1 + 
   theme(plot.title.position = "plot")
 
-# Extract relevant information from em2
+# Extract relevant information
 category_num <- 50
 top_categories <- head(em2$ID, 10)
 category_NES <- tail(em2$NES, category_num)
@@ -285,12 +240,11 @@ em2$ID
 plot_data <- data.frame(em2)
 
 # Create the bar plot
-# Define colors for specific categories
 category_colors <- c("HALLMARK_E2F_TARGETS" = "GOI",
                      "Other" = "Others",
                      "HALLMARK_DNA_REPAIR" = "GOI"# Default color for other categories
 )
-em2$ID
+print(em2$ID)
 # Map category colors to the plot data
 plot_data$Color <- ifelse(plot_data$ID == "HALLMARK_E2F_TARGETS" | plot_data$ID == "HALLMARK_DNA_REPAIR",
                           category_colors["HALLMARK_E2F_TARGETS"],
@@ -307,15 +261,13 @@ bar_plot <- ggplot(plot_data, aes(x = reorder(plot_data$ID, NES), y = NES, fill 
   theme(plot.title = element_text(hjust = 0.5))
 
 print(bar_plot)
-
-
 bar_plot <- ggplot(plot_data, aes(x = reorder(plot_data$ID, NES), y = NES)) +
   geom_bar(stat = "identity", fill = "skyblue") +
   coord_flip() +  # Flip the coordinates to create a horizontal bar plot
   labs(title = paste("Top", category_num, "hallmarks of", tag, "high vs low U6atac"),
        x = "Hallmark", y = "Normalized Enrichment Score") +
   theme_minimal() 
-bar_plot
+print(bar_plot)
 
 #filename <- paste("top", category_num, "hallmarks of", tag, "high vs low U6atac", ".png", sep = "_")
 #ggsave(filename, plot = dot1, device = "png")
@@ -329,16 +281,14 @@ data(geneList, package="DOSE")
 gene <- names(geneList)
 em <- enricher(gene, TERM2GENE=H)
 ## visualise ORA
-upsetplot(em) #Works
-# ==============================================================================
-# ===========
-# ---
+upsetplot(em)
+
 #check & filter 
 results_df <- as.data.frame(dds_tumour)
 rownames(results_df)
 results_df$gene <- rownames(results_df)
 results_df$negLog10Pvalue <- -log10(results_df$pvalue)
-# ---------------------- more gene lists of interest ---------------------------
+# ===== Additional GOIs =====
 e2f_list <- read_excel("E2F targets.xlsx",sheet=2)
 e2f_c <- e2f_list$C1_cell_cycle
 e2f_checkpoint <- e2f_list$checkpoint
@@ -348,7 +298,9 @@ e2f_BPAX1 <- e2f_list$`(vii) Development BAPX1`
 e2f_apop <- e2f_list$`(vi) Apoptosis`
 e2f_DNA_repair <- e2f_list$`(v) DNA damage rep`
 e2f_dna_syn <- e2f_list$`ii DNA synthesis`
-# ------------------------------------------------------------------------------
+# ------
+
+# ===== Visualize Results focusing on DNA repair genes ====
 # Define the key variables
 results_df <- dds_tumour
 TOI <- DNA_r_144_genes
@@ -356,12 +308,11 @@ NOI <- 'DNA_repair 144'
 NOI_SIG <- '144 DNA repair Significant'
 NOI_UNSIG <- '144 DNA repair NOT Significant'
 
-# Ensure highlight column is properly created
+# Ensure column is properly created
 results_df$highlight <- ifelse(rownames(results_df) %in% TOI, NOI, "Other")
 # Subset for DNA results based on highlight
 dna_results <- results_df[results_df$highlight == NOI, ]
 print(dna_results)  # Verify the subset
-# Update color groups based on conditions
 results_df$color_group <- ifelse(results_df$highlight == NOI & results_df$pvalue < 0.05, 
                                  NOI_SIG, 
                                  ifelse(results_df$highlight == NOI, NOI_UNSIG, "Other"))
@@ -421,91 +372,29 @@ volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue))
 print(volcano_plot1)
 #ggsave("low U6, tumour vs TME, volcano_plot, DNA repair genes.pdf", volcano_plot, width = 10, height = 8,units = "in")
 dev.off()
-# ============== Plot B: Everything labelled, but no lines =====================
-volcano_plot2<- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
-  geom_point(data = subset(results_df, color_group == "Other"),
-             aes(color = color_group), alpha = 0.5, size = 3) +
-  geom_point(data = subset(results_df, color_group %in% c("DNA repair Significant",
-                                                          "DNA repair Not Significant")),
-             aes(color = color_group), size = 3.5) +
-  scale_color_manual(values = c("Other" = "grey", 
-                                "DNA repair Significant" = "red", 
-                                "DNA repair Not Significant" = "#b48080")) +
-  labs(title = "Tumour. high vs low",
-       x = "Log2 Fold Change", y = "-Log10 p-value",
-       color = "Gene Group") +
-  theme_minimal() +
-  geom_text_repel(data = subset(results_df, color_group %in% c("DNA repair Significant", "DNA repair Not Significant")),
-                  aes(label = rownames(subset(results_df, color_group %in% c("DNA repair Significant", "DNA repair Not Significant")))),
-                  size = 3, color = "black", box.padding = 0.35, point.padding = 0.5,
-                  min.segment.length = 0, max.overlaps = Inf)
-print(volcano_plot2)
-plot_tumour <- grid.arrange(volcano_plot1, volcano_plot2, nrow = 1)
-ggsave("Tumour.pdf", plot_tumour, width = 20, height = 8,units = "in")
+# ===== Alternative Way to Plot the same data ====
+#volcano_plot2<- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
+#  geom_point(data = subset(results_df, color_group == "Other"),
+#             aes(color = color_group), alpha = 0.5, size = 3) +
+#  geom_point(data = subset(results_df, color_group %in% c("DNA repair Significant",
+#                                                          "DNA repair Not Significant")),
+#             aes(color = color_group), size = 3.5) +
+#  scale_color_manual(values = c("Other" = "grey", 
+#                                "DNA repair Significant" = "red", 
+#                                "DNA repair Not Significant" = "#b48080")) +
+#  labs(title = "Tumour. high vs low",
+#       x = "Log2 Fold Change", y = "-Log10 p-value",
+#       color = "Gene Group") +
+#  theme_minimal() +
+#  geom_text_repel(data = subset(results_df, color_group %in% c("DNA repair Significant", "DNA repair Not Significant")),
+#                  aes(label = rownames(subset(results_df, color_group %in% c("DNA repair Significant", "DNA repair Not Significant")))),
+#                  size = 3, color = "black", box.padding = 0.35, point.padding = 0.5,
+#                  min.segment.length = 0, max.overlaps = Inf)
+#print(volcano_plot2)
+#plot_tumour <- grid.arrange(volcano_plot1, volcano_plot2, nrow = 1)
+#ggsave("Tumour.pdf", plot_tumour, width = 20, height = 8,units = "in")
 
-
-# ==============================================================================
-
-#         dna repair E2Fs
-
-# ==============================================================================
-
-print(rownames(results_df)[rownames(results_df) %in% e2f_dna_syn])
-# Adding the highlight column correctly
-image_tag <- "E2F DNA synthesis"
-
-cond1 <- paste(image_tag, "Significant")
-cond2 <- paste(image_tag, "Not Significant")
-results_df$highlight <- ifelse(rownames(results_df) %in% e2f_dna_syn,
-                               image_tag, "Other")
-dna_results <- results_df[results_df$highlight == image_tag, ]
-print(dna_results)
-
-# ------- coloring 
-
-results_df$color_group <- ifelse(results_df$highlight == image_tag & results_df$pvalue < 0.05, 
-                                 paste(image_tag, "Significant"), 
-                                 ifelse(results_df$highlight == image_tag,
-                                        paste(image_tag, "Not Significant"), "Other"))
-
-
-# Check the first few rows to confirm 'highlight' column exists
-head(results_df)
-results_df["RAD51", ]
-
-# Create the basic volcano plot with adjusted text labels
-title_ <- paste(image_tag, "Tumour. high vs low U6atac")
-volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
-  geom_point(data = subset(results_df, color_group == "Other"),
-             aes(color = color_group), alpha = 0.5, size = 3) +
-  geom_point(data = subset(results_df, color_group %in% "E2F DNA synthesis Significant",
-                                                         "E2F DNA synthesis Not Significant"),
-             aes(color = color_group), size = 3.5) +
-  scale_color_manual(values = c("Other" = "grey", 
-                                "E2F DNA synthesis Significant" = "red", 
-                                "E2F DNA synthesis Not Significant" = "#b48080")) +
-  labs(title = title_,
-       x = "Log2 Fold Change", y = "-Log10 p-value",
-       color = "Gene Group") +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
-  geom_vline(xintercept = 0, linetype = "dotted") +
-  annotate("text", x = -max(results_df$log2FoldChange) * 0.1, y = max(results_df$negLog10Pvalue)*1.1, label = "High U6atac", hjust = -4, vjust = 4) +
-  annotate("text", x = max(results_df$log2FoldChange) * 0.1, y = max(results_df$negLog10Pvalue)*1.1, label = "Low U6atac", hjust = 4, vjust = 4) +
-  theme(axis.line = element_line(color='white'), panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
-        panel.border = element_blank()) +
-  geom_text_repel(data = subset(results_df, color_group %in% "E2F DNA synthesis Significant"),
-                  aes(label = rownames(subset(results_df, color_group %in% "E2F DNA synthesis Significant"))),
-                  size = 3, color = "black", box.padding = 0.35, point.padding = 0.5,
-                  min.segment.length = 0, max.overlaps = Inf)
-print(volcano_plot1)
-# ==============================================================================
-
-
-#         aLL 
-
-
-# ==============================================================================
+# =====Checking E2Fs=====
 all_e2f <- read_excel("E2F targets.xlsx",sheet=1)
 all_e2f <- all_e2f$GeneName
 results_df <- dds_tumour
@@ -519,7 +408,6 @@ results_df$highlight <- ifelse(rownames(results_df) %in% all_e2f,
 dna_results <- results_df[results_df$highlight == "E2F target", ]
 print(dna_results)
 
-# ------- coloring 
 results_df$color_group <- ifelse(results_df$highlight == "E2F target" & results_df$pvalue < 0.05, 
                                  "E2F target Significant", 
                                  ifelse(results_df$highlight == "E2F target",
@@ -529,7 +417,7 @@ results_df$color_group <- ifelse(results_df$highlight == "E2F target" & results_
 # Check the first few rows to confirm 'highlight' column exists
 head(results_df)
 results_df["EZH2", ]
-# ===================== Plot A: Only label Sig, no line ========================
+# Same plotting method used here. 
 # Create the basic volcano plot with adjusted text labels
 volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
   geom_point(data = subset(results_df, color_group == "Other"),
@@ -555,13 +443,8 @@ volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue))
                   size = 3, color = "black", box.padding = 0.35, point.padding = 0.5,
                   min.segment.length = 0, max.overlaps = Inf)
 print(volcano_plot1)
-# ==============================================================================
 
-
-#         BAXI1 GROWTH STH?  
-
-
-# ==============================================================================
+# =====BPAX1 Check=====
 results_df <- dds_tumour
 results_df <- as.data.frame(results_df)
 e2f_BPAX1 <- na.omit(e2f_BPAX1)
@@ -573,18 +456,15 @@ results_df$highlight <- ifelse(rownames(results_df) %in% e2f_BPAX1,
                                "E2F BPAX1", "Other")
 dna_results <- results_df[results_df$highlight == "E2F BPAX1", ]
 print(dna_results)
-
-# ------- coloring 
 results_df$color_group <- ifelse(results_df$highlight == "E2F BPAX1" & results_df$pvalue < 0.05, 
                                  "E2F BPAX1 Significant", 
                                  ifelse(results_df$highlight == "E2F BPAX1",
                                         "E2F BPAX1 Not Significant", "Other"))
 
-
-# Check the first few rows to confirm 'highlight' column exists
+# Check Integrity
 head(results_df)
 results_df["TP73", ]
-# ===================== Plot A: Only label Sig, no line ========================
+# ===== Plotting BPAX1 =====
 # Create the basic volcano plot with adjusted text labels
 volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
   geom_point(data = subset(results_df, color_group == "Other"),
@@ -611,13 +491,7 @@ volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue))
                   min.segment.length = 0, max.overlaps = Inf)
 print(volcano_plot1)
 
-# ==============================================================================
-
-
-#        ALL DNA REPAIR
-
-
-# ==============================================================================
+# ===== Checking Extended DNA repair GOIs =====
 results_df <- dds_tumour
 results_df <- dds_tme
 results_df <- as.data.frame(results_df)
@@ -629,19 +503,13 @@ results_df$highlight <- ifelse(rownames(results_df) %in% dna_repair_genes_all,
                                "DNA repair", "Other")
 dna_results <- results_df[results_df$highlight == "DNA repair", ]
 print(dna_results)
-
-# ------- coloring 
 results_df$color_group <- ifelse(results_df$highlight == "DNA repair" & results_df$pvalue < 0.05, 
                                  "DNA repair Significant", 
                                  ifelse(results_df$highlight == "DNA repair",
                                         "DNA repair Not Significant", "Other"))
-
-
-# Check the first few rows to confirm 'highlight' column exists
 head(results_df)
 results_df["ATM", ]
-# ===================== Plot A: Only label Sig, no line ========================
-# Create the basic volcano plot with adjusted text labels
+
 volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
   geom_point(data = subset(results_df, color_group == "Other"),
              aes(color = color_group), alpha = 0.5, size = 3) +
@@ -670,13 +538,7 @@ sum(results_df$color_group == "DNA repair Significant")
 sum(results_df$color_group == "DNA repair Significant" & results_df$log2FoldChange > 0)
 sum(results_df$color_group == "DNA repair Significant" & results_df$log2FoldChange < 0)
 
-# ==============================================================================
-
-
-#         aLL 
-
-
-# ==============================================================================
+# =====Checking all E2F targets =====
 all_e2f <- read_excel("E2F targets.xlsx",sheet=1)
 all_e2f <- all_e2f$GeneName
 results_df <- dds_tumour
@@ -690,7 +552,6 @@ results_df$highlight <- ifelse(rownames(results_df) %in% all_e2f,
 dna_results <- results_df[results_df$highlight == "E2F target", ]
 print(dna_results)
 
-# ------- coloring 
 results_df$color_group <- ifelse(results_df$highlight == "E2F target" & results_df$pvalue < 0.05, 
                                  "E2F target Significant", 
                                  ifelse(results_df$highlight == "E2F target",
@@ -700,7 +561,6 @@ results_df$color_group <- ifelse(results_df$highlight == "E2F target" & results_
 # Check the first few rows to confirm 'highlight' column exists
 head(results_df)
 results_df["EZH2", ]
-# ===================== Plot A: Only label Sig, no line ========================
 # Create the basic volcano plot with adjusted text labels
 volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
   geom_point(data = subset(results_df, color_group == "Other"),
@@ -727,11 +587,7 @@ volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue))
                   min.segment.length = 0, max.overlaps = Inf)
 print(volcano_plot1)
 
-# ==============================================================================
-
-#           MIGS
-
-# ==============================================================================
+# =====Checking All Minor Intron Genes =====
 results_dds <- dds_tumour
 results_df <- as.data.frame(results_dds)
 results_df$log2FoldChange <- results_df$log2FoldChange
@@ -746,27 +602,11 @@ MIG_results$Gene <- rownames(MIG_results)
 MIG_results
 # Write the dataframe to an Excel file
 write.xlsx(as.data.frame(MIG_results), file = "tumour_minor_introns_results.xlsx")
-
-
 print(MIG_results)
-# plot in general MIGs
-#ggplot(MIG_results, aes(x = log2FoldChange, y = negLog10Pvalue)) +
-# geom_point() +  # Add points
-#  labs(x = "Log2 Fold Change", y = "-log10(P-value)") +  # Label axes
-#  ggtitle("Volcano Plot for MIGs") +  # Add a title
-#  theme_minimal()  # Apply a minimal theme (optional, you can choose any theme you like)
-# ------- coloring 
-results_df$color_group <- ifelse(results_df$highlight == "MIGs" & results_df$pvalue < 0.05, 
-                                 "MIGs Significant", 
-                                 ifelse(results_df$highlight == "MIGs",
-                                        "MIGs Not Significant", "Other"))
+# head(results_df)
 
-
-# Check the first few rows to confirm 'highlight' column exists
-head(results_df)
-
+#Sanity Check
 results_df["STX10", ]
-# ===================== Plot A: Only label Sig, no line ========================
 # Create the basic volcano plot with adjusted text labels
 volcano_plot1 <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
   geom_point(data = subset(results_df, color_group == "Other"),
@@ -793,12 +633,10 @@ MIG_up_tumour <- results_df %>%
 MIG_up_tumour$Gene <- rownames(MIG_up_tumour)
 write.xlsx(as.data.frame(MIG_up_tumour), file = "tumour_Upregulated_MIGs_updated_U6.xlsx")
 
-
 MIG_down_tumour <- results_df %>%
   filter(color_group == "MIGs Significant" & log2FoldChange < 0)
 MIG_down_tumour$Gene <- rownames(MIG_down_tumour)
 write.xlsx(as.data.frame(MIG_down_tumour), file = "tumour_Dowunregulated_MIGs_U6_updated.xlsx")
-
 
 results_df %>%
   filter(color_group == "MIGs Significant" & log2FoldChange > 0) %>%
@@ -807,49 +645,3 @@ results_df %>%
 results_df %>%
   filter(color_group == "MIGs Significant" & log2FoldChange < 0) %>%
   nrow()
-
-
-# =========================== BASIC E2F ========================================
-results_df <- as.data.frame(dds_tumour)
-results_df$log2FoldChange <- results_df$log2FoldChange
-results_df$negLog10Pvalue <- -log10(results_df$pvalue)
-rownames(results_df)
-
-print(rownames(results_df)[rownames(results_df) %in% e2f_genes])
-results_df$highlight <- ifelse(rownames(results_df) %in% e2f_genes, "E2F Family", "Other")
-results_df$color_group <- ifelse(results_df$highlight == "E2F Family" & results_df$pvalue < 0.05, 
-                                 "E2F Family Significant", 
-                                 ifelse(results_df$highlight == "E2F Family",
-                                        "E2F Family Not Significant", "Other"))
-head(results_df)
-e2f_results <- results_df[results_df$highlight == "E2F Family", ]
-print(e2f_results)
-head(results_df)
-results_df["E2F1", ]
-
-# Create the volcano plot
-volcano_plot <- ggplot(results_df, aes(x = log2FoldChange, y = negLog10Pvalue)) +
-  geom_point(data = subset(results_df, color_group == "Other"),
-             aes(color = color_group), alpha = 0.5, size = 3) +
-  geom_point(data = subset(results_df, color_group %in% c("E2F Family Significant",
-                                                          "E2F Family Not Significant")),
-             aes(color = color_group), size = 3.5) +
-  scale_color_manual(values = c("Other" = "grey", 
-                                "E2F Family Significant" = "red", 
-                                "E2F Family Not Significant" = "#b48080")) +
-  labs(title = "Tumour environment, high vs low U6atac",
-       x = "Log2 Fold Change", y = "-Log10 p-value",
-       color = "Gene Group") +geom_vline(xintercept = 0, linetype = "dotted") +
-  annotate("text", x = -max(results_df$log2FoldChange) * 0.1, y = max(results_df$negLog10Pvalue)*1.1, label = "High U6atac", hjust = -3, vjust = 4) +
-  annotate("text", x = max(results_df$log2FoldChange) * 0.1, y = max(results_df$negLog10Pvalue)*1.1, label = "Low U6atac", hjust = 3, vjust = 4) +
-  theme(axis.line = element_line(color='white'), panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
-        panel.border = element_blank()) +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
-  geom_text_repel(data = subset(results_df, color_group %in% c("E2F Family Significant",
-                                                               "E2F Family Not Significant")),
-                  aes(label = rownames(subset(results_df, color_group %in% c("E2F Family Significant",
-                                                                             "E2F Family Not Significant")))),
-                  size = 3, color = "black", box.padding = 0.35, point.padding = 0.5,
-                  min.segment.length = 0, max.overlaps = Inf)
-print(volcano_plot)
