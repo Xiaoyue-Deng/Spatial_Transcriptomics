@@ -1,4 +1,4 @@
-# Assuming `dds` is your DESeq2 object and you have raw counts in `counts(dds)`
+# Continue from dds Analysis
 raw_counts <- counts(dds)
 
 # Convert to data frame for ggplot2
@@ -22,7 +22,7 @@ ggplot(raw_counts_df, aes(x = sample, y = log2(count + 1))) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-# Assuming `rld` is your DESeq2 object after rlog normalization
+# Use rlog normalizaton method
 rlog_counts <- assay(rld)
 
 # Convert to data frame for ggplot2
