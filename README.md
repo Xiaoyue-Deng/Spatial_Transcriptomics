@@ -1,5 +1,6 @@
 # Repository Catalogue
 This repository contains code used for Nanostring GeoMx analysis. 
+The main script used for the manuscript is under the same repository, while supporting scripts on spatial deconvolution can be found in the [support_scripts](https://github.com/Xiaoyue-Deng/Spatial_Transcriptomics/tree/main/support_scripts).
 
 
 # DSP analysis and visualization
