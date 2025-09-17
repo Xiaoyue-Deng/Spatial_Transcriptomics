@@ -5,9 +5,7 @@ library(SpatialDecon)
 library(SeuratObject)
 #library(NanoStringGeoMxTools)
 library(DESeq2)
-#===============================================================================
-#                           CONTINUING FROM DESEQ2
-#===============================================================================
+#========== CONTINUING FROM DESEQ2 ==========
 rld <- rlog(dds, blind = TRUE)
 vst <- vst(dds, blind = TRUE)
 rlog_counts <- assay(rld)
@@ -17,12 +15,12 @@ dim(rlog_counts)
 nrow(rlog_counts)
 head(rlog_counts)
 #checking for negprobe
-#=============================== investigation into negprob
+#========== investigation into negprob ==========
 bg_pro = derive_GeoMx_background(norm=rlog_counts, probepool = rep(1, nrow(rlog_counts)), negnames = "NegProbe-WTX")
 #bg_pro = derive_GeoMx_background(norm=vst, probepool = rep(1, nrow(vst_counts)), negnames = "NegProbe-WTX")
 #vst
 # Check the structure of prostate_data
-#-------- loading prostate data
+#-------- loading prostate data -------
 load("Prostate_Henry.RData")
 write.csv(x = profile_matrix, file = "Prostate_matrix.csv", 
           row.names = TRUE, quote = FALSE)
@@ -90,4 +88,5 @@ pheatmap(sorted_beta,
                  annotation_col = sorted_annotation_data,  # Add U6ATAC annotations
                  annotation_colors = annotation_colors)  # Set colors for annotations
 dev.off()
+
 
