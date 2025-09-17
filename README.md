@@ -1,6 +1,10 @@
+# Repository Catalogue
+This repository contains code used for Nanostring GeoMx analysis. 
+
+
 # DSP analysis and visualization
 
-This repository contains the R code and workflow used for a manuscript (To be Updated)
+This Script contains the R code and workflow used for a manuscript (To be Updated).
 
 ---
 
